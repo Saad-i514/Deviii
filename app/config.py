@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     SMTP_SERVER: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = "msaadbinmazhar@gmail.com"
-    SMTP_PASSWORD: str = "pcfc jxzl actk lgbn"
-    FROM_EMAIL: str = "noreply@devcon26.com"
+    SMTP_PASSWORD: str = "pcfc jxzl actk lgbn"  # Generate new App Password
+    FROM_EMAIL: str = "msaadbinmazhar@gmail.com"  # Match username
     
     # File Uploads
     UPLOAD_DIR: str = "app/static/uploads"

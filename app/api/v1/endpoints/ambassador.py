@@ -286,6 +286,8 @@ def get_ambassador_stats(
     """
     Get statistics for current ambassador
     """
+    from sqlalchemy import func
+    
     # Total verifications by this ambassador
     total_verifications = db.query(Payment).filter(
         Payment.verified_by == current_ambassador.id,
@@ -293,7 +295,7 @@ def get_ambassador_stats(
     ).count()
     
     # Total amount collected
-    total_amount = db.query(db.func.sum(Payment.amount)).filter(
+    total_amount = db.query(func.sum(Payment.amount)).filter(
         Payment.verified_by == current_ambassador.id,
         Payment.status == PaymentStatus.VERIFIED
     ).scalar() or 0
@@ -303,7 +305,7 @@ def get_ambassador_stats(
     today_verifications = db.query(Payment).filter(
         Payment.verified_by == current_ambassador.id,
         Payment.status == PaymentStatus.VERIFIED,
-        db.func.date(Payment.verified_at) == today
+        func.date(Payment.verified_at) == today
     ).count()
     
     # Pending cash payments (system-wide)

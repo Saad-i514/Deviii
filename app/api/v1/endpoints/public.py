@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
@@ -200,7 +200,8 @@ def select_payment_method(
 
 @router.post("/upload-payment-receipt")
 async def upload_payment_receipt_public(
-    payment_data: OnlinePaymentUpload,
+    email: str = Form(...),
+    transaction_id: str = Form(...),
     receipt: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -208,7 +209,7 @@ async def upload_payment_receipt_public(
     Upload payment receipt (public endpoint)
     """
     # Get user and participant
-    user = get_user_by_email(db, payment_data.email)
+    user = get_user_by_email(db, email)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -249,7 +250,7 @@ async def upload_payment_receipt_public(
         buffer.write(content)
     
     # Update payment
-    payment.transaction_id = payment_data.transaction_id
+    payment.transaction_id = transaction_id
     payment.receipt_path = file_path
     payment.uploaded_at = datetime.now()
     db.commit()

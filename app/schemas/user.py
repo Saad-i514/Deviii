@@ -17,6 +17,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    role: Optional[UserRole] = UserRole.PARTICIPANT
     
     @field_validator('password')
     def validate_password(cls, v):

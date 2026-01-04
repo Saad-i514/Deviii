@@ -30,8 +30,10 @@ def get_current_user(
 
 def get_current_participant(user = Depends(get_current_user),db: Session = Depends(get_db)):
      
-    if user.role != UserRole.PARTICIPANT:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Not a participant"
+    # Allow participants, admins, ambassadors, and registration team to access participant endpoints
+    allowed_roles = [UserRole.PARTICIPANT, UserRole.ADMIN, UserRole.AMBASSADOR, UserRole.REGISTRATION_TEAM]
+    if user.role not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Access denied"
         )
     
     participant = get_participant_by_user_id(db, user.id)
@@ -42,8 +44,17 @@ def get_current_participant(user = Depends(get_current_user),db: Session = Depen
 
 def require_role(required_role: UserRole):
     def role_checker(current_user = Depends(get_current_user)):
-        if current_user.role != required_role and current_user.role != UserRole.ADMIN:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=f"Requires {required_role} role"
+        # Allow admins to access everything, and allow multi-role access
+        allowed_roles = [required_role, UserRole.ADMIN]
+        
+        # Special cases for multi-role access
+        if required_role == UserRole.AMBASSADOR:
+            allowed_roles.extend([UserRole.PARTICIPANT, UserRole.REGISTRATION_TEAM])
+        elif required_role == UserRole.REGISTRATION_TEAM:
+            allowed_roles.extend([UserRole.PARTICIPANT, UserRole.AMBASSADOR])
+            
+        if current_user.role not in allowed_roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=f"Requires {required_role} role or compatible role"
             )
         return current_user
     return role_checker

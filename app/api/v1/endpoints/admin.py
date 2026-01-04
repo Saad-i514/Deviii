@@ -286,15 +286,24 @@ def export_participants(
     
     if format == "excel":
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Participants')
-        output.seek(0)
-        
-        return StreamingResponse(
-            output,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": "attachment; filename=devcon26_participants.xlsx"}
-        )
+        try:
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Participants')
+            output.seek(0)
+            
+            return StreamingResponse(
+                BytesIO(output.getvalue()),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": "attachment; filename=devcon26_participants.xlsx"}
+            )
+        except Exception as e:
+            # Fallback to CSV if Excel fails
+            csv_data = df.to_csv(index=False)
+            return StreamingResponse(
+                iter([csv_data]),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=devcon26_participants_fallback.csv"}
+            )
     else:
         csv_data = df.to_csv(index=False)
         return StreamingResponse(
@@ -418,4 +427,233 @@ def verify_qr_endpoint(
         "track": participant.track.value,
         "team": participant.team.name if participant.team else None,
         "payment_verified": True
+    }
+
+@router.post("/verify-online/{payment_id}")
+async def verify_online_payment(
+    payment_id: int,
+    approve: bool = Query(True, description="Approve (True) or reject (False)"),
+    remarks: Optional[str] = None,
+    current_admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Verify or reject an online payment (Admin only)
+    """
+    from app.utils.email import email_service
+    from app.utils.qr_code import generate_qr_code
+    
+    # Get payment with participant and user info
+    payment = db.query(Payment).join(Participant).join(User).filter(
+        Payment.id == payment_id
+    ).first()
+    
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment not found"
+        )
+    
+    if payment.payment_method != "online":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This is not an online payment"
+        )
+    
+    participant = payment.participant
+    user = participant.user
+    
+    # Update payment status
+    if approve:
+        payment.status = PaymentStatus.VERIFIED
+        payment.verified_by = current_admin.id
+        payment.verified_at = datetime.now()
+        
+        # Generate QR code for approved payment
+        qr_path = generate_qr_code(
+            participant_id=participant.id,
+            user_name=user.full_name,
+            email=user.email,
+            track=participant.track.value,
+            team_name=participant.team.name if participant.team else None
+        )
+        
+        # Send approval email with QR code
+        try:
+            await email_service.send_payment_verified_email(
+                user_name=user.full_name,
+                email=user.email,
+                track=participant.track.value,
+                qr_code_path=qr_path
+            )
+            email_sent = True
+        except Exception as e:
+            print(f"Failed to send approval email: {e}")
+            email_sent = False
+            
+    else:
+        payment.status = PaymentStatus.REJECTED
+        
+        # Send rejection email
+        try:
+            await email_service.send_payment_rejected_email(
+                user_name=user.full_name,
+                email=user.email,
+                reason=remarks or "Payment receipt could not be verified"
+            )
+            email_sent = True
+        except Exception as e:
+            print(f"Failed to send rejection email: {e}")
+            email_sent = False
+    
+    db.commit()
+    db.refresh(payment)
+    
+    return {
+        "message": f"Payment {'approved' if approve else 'rejected'} successfully",
+        "payment_id": payment.id,
+        "participant_name": user.full_name,
+        "participant_email": user.email,
+        "status": payment.status.value,
+        "verified_by": payment.verified_by,
+        "verified_at": payment.verified_at,
+        "remarks": remarks,
+        "email_sent": email_sent,
+        "qr_code_generated": approve and email_sent
+    }
+@router.post("/create-participant-profile")
+def create_admin_participant_profile(
+    participant_data: dict,
+    current_admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Allow admin to create a participant profile for themselves
+    """
+    from app.crud.participant import create_participant
+    from app.schemas.participant import ParticipantCreate
+    
+    # Check if admin already has participant profile
+    existing_participant = db.query(Participant).filter(
+        Participant.user_id == current_admin.id
+    ).first()
+    
+    if existing_participant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admin already has a participant profile"
+        )
+    
+    # Create participant profile for admin
+    participant_create = ParticipantCreate(**participant_data)
+    participant = create_participant(db, participant_create, current_admin.id)
+    
+    return {
+        "message": "Participant profile created for admin",
+        "participant_id": participant.id,
+        "admin_can_now_access_participant_endpoints": True
+    }
+@router.post("/create-ambassador-profile")
+def create_ambassador_profile_for_user(
+    user_email: str,
+    current_admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Allow admin to grant ambassador privileges to any user (including themselves)
+    """
+    # Find the user
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Update user role to ambassador (or keep existing if admin)
+    if user.role == UserRole.ADMIN:
+        # Admin keeps admin role but can now access ambassador endpoints
+        message = f"Admin {user.full_name} can now access ambassador endpoints"
+    else:
+        user.role = UserRole.AMBASSADOR
+        db.commit()
+        message = f"User {user.full_name} is now an ambassador"
+    
+    return {
+        "message": message,
+        "user_id": user.id,
+        "email": user.email,
+        "role": user.role.value,
+        "can_access_ambassador_endpoints": True
+    }
+
+@router.post("/create-registration-team-profile")
+def create_registration_team_profile_for_user(
+    user_email: str,
+    current_admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Allow admin to grant registration team privileges to any user
+    """
+    # Find the user
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Update user role to registration team (or keep existing if admin)
+    if user.role == UserRole.ADMIN:
+        message = f"Admin {user.full_name} can now access registration team endpoints"
+    else:
+        user.role = UserRole.REGISTRATION_TEAM
+        db.commit()
+        message = f"User {user.full_name} is now part of registration team"
+    
+    return {
+        "message": message,
+        "user_id": user.id,
+        "email": user.email,
+        "role": user.role.value,
+        "can_access_registration_team_endpoints": True
+    }
+
+@router.post("/grant-multi-role-access")
+def grant_multi_role_access(
+    user_email: str,
+    target_role: UserRole,
+    current_admin = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Grant multi-role access to a user
+    """
+    # Find the user
+    user = db.query(User).filter(User.email == user_email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Update role
+    old_role = user.role.value
+    user.role = target_role
+    db.commit()
+    
+    return {
+        "message": f"User role updated from {old_role} to {target_role.value}",
+        "user_id": user.id,
+        "email": user.email,
+        "old_role": old_role,
+        "new_role": user.role.value,
+        "multi_role_access": True,
+        "can_access": {
+            "participant_endpoints": True,
+            "ambassador_endpoints": target_role in [UserRole.AMBASSADOR, UserRole.ADMIN],
+            "registration_team_endpoints": target_role in [UserRole.REGISTRATION_TEAM, UserRole.ADMIN],
+            "admin_endpoints": target_role == UserRole.ADMIN
+        }
     }

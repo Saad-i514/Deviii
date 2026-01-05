@@ -1,6 +1,6 @@
 # 🚀 Devcon '26 API Guide
 
-## Base URL: `http://127.0.0.1:8000`
+## Base URL:https://web-production-5aa2b.up.railway.app/docs#/
 
 ---
 
@@ -357,4 +357,4 @@ python comprehensive_test.py
 
 ---
 
-**API Documentation:** http://127.0.0.1:8000/docs
+**API Documentation:** https://web-production-5aa2b.up.railway.app/docs#/

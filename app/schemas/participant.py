@@ -24,7 +24,8 @@ class ParticipantBase(BaseModel):
     technical_skills: Optional[str] = None
     github_link: Optional[str] = None
     portfolio_link: Optional[str] = None
-    tshirt_size: TShirtSize
+    tshirt_size: Optional[TShirtSize] = None
+
     dietary_requirements: Optional[str] = None
     emergency_contact: str
 

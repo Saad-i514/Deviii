@@ -20,7 +20,7 @@ class PaymentBase(BaseModel):
     transaction_id: Optional[str] = None
 
 class PaymentCreate(PaymentBase):
-    # For online payments
+    
     receipt_path: Optional[str] = None
     uploaded_at: Optional[datetime] = None
     

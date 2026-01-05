@@ -33,12 +33,12 @@ class Participant(Base):
     dietary_requirements = Column(Text)
     emergency_contact = Column(String)
     
-    # Registration status
+     
     is_team_lead = Column(Boolean, default=False)
     team_id = Column(Integer, ForeignKey("teams.id"))
     registration_complete = Column(Boolean, default=False)
     
-    # Relationships
+   
     user = relationship("User", back_populates="participant")
     team = relationship("Team", back_populates="members")
     payment = relationship("Payment", back_populates="participant", uselist=False)

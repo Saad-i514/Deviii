@@ -8,24 +8,11 @@ from app.models.payment import Payment, PaymentStatus, PaymentMethod
 from app.models.participant import Participant
 from app.models.user import User
 from app.models.team import Team
-from app.schemas.payment import (
-    PaymentCreate, 
-    PaymentOnlineCreate, 
-    PaymentCashCreate,
-    PaymentUpdate,
-    PaymentStatus
+from app.schemas.payment import (PaymentCreate, PaymentOnlineCreate, PaymentCashCreate,PaymentUpdate,PaymentStatus
 )
 from app.config import settings
 
-def create_payment(
-    db: Session, 
-    participant_id: int,
-    team_id: Optional[int],
-    amount: float,
-    payment_method: PaymentMethod,
-    transaction_id: Optional[str] = None,
-    receipt_path: Optional[str] = None
-) -> Payment:
+def create_payment(db: Session, participant_id: int,team_id: Optional[int],amount: float,payment_method: PaymentMethod,transaction_id: Optional[str] = None,receipt_path: Optional[str] = None) -> Payment:
     """Create a new payment record"""
     
     # Set initial status based on payment method
@@ -62,11 +49,7 @@ def get_payments_by_team(db: Session, team_id: int) -> List[Payment]:
     """Get all payments for a team"""
     return db.query(Payment).filter(Payment.team_id == team_id).all()
 
-def update_payment_status(
-    db: Session, 
-    payment_id: int, 
-    status: PaymentStatus,
-    verified_by: Optional[int] = None
+def update_payment_status(db: Session, payment_id: int, status: PaymentStatus,verified_by: Optional[int] = None
 ) -> Optional[Payment]:
     """Update payment status"""
     payment = get_payment_by_id(db, payment_id)
@@ -79,10 +62,7 @@ def update_payment_status(
         db.refresh(payment)
     return payment
 
-def verify_cash_payment(
-    db: Session,
-    participant_id: int,
-    ambassador_id: int
+def verify_cash_payment(db: Session,participant_id: int,ambassador_id: int
 ) -> Optional[Payment]:
     """Verify a cash payment (for ambassadors)"""
     payment = get_payment_by_participant(db, participant_id)
@@ -94,11 +74,7 @@ def verify_cash_payment(
         db.refresh(payment)
     return payment
 
-def verify_online_payment(
-    db: Session,
-    payment_id: int,
-    approve: bool = True,
-    admin_id: Optional[int] = None
+def verify_online_payment(db: Session,payment_id: int,approve: bool = True,admin_id: Optional[int] = None
 ) -> Optional[Payment]:
     """Verify or reject an online payment (for admins)"""
     payment = get_payment_by_id(db, payment_id)

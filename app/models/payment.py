@@ -24,19 +24,17 @@ class Payment(Base):
     payment_method = Column(Enum(PaymentMethod), nullable=False)
     status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     
-    # Online payment details
+   
     transaction_id = Column(String)
     receipt_path = Column(String)
     uploaded_at = Column(DateTime(timezone=True))
     
-    # Cash payment details
+   
     verified_by = Column(Integer, ForeignKey("users.id"))
     verified_at = Column(DateTime(timezone=True))
-    
-    # Relationships
+     
     participant = relationship("Participant", back_populates="payment")
     team = relationship("Team", back_populates="payments")
-    
-    # Audit trail
+ 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

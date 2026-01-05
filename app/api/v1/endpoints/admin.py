@@ -58,10 +58,7 @@ def get_admin_dashboard(
         Payment.status == PaymentStatus.VERIFIED
     ).scalar()
     
-    cash_verified = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
-        Payment.payment_method == "cash", 
-        Payment.status == PaymentStatus.VERIFIED
-    ).scalar()
+    cash_verified = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.payment_method == "cash", Payment.status == PaymentStatus.VERIFIED).scalar()
     
     payment_summary = {
         'total_online': float(online_verified),

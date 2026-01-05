@@ -9,8 +9,7 @@ from app.crud.participant import get_participant_by_user_id
 
 security = HTTPBearer()
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),db: Session = Depends(get_db)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security),db: Session = Depends(get_db)):
     token = credentials.credentials
     payload = decode_token(token)
     if payload is None:

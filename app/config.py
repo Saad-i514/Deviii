@@ -16,11 +16,11 @@ class Settings(BaseSettings):
     SMTP_SERVER: str = os.getenv("SMTP_SERVER", "smtp.gmail.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
     SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "msaadbinmazhar@gmail.com")
-<<<<<<< HEAD
+ 
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-=======
+ 
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "put your token here")
->>>>>>> 6fee2c9ace5685e3e53b11f567d5db3294ea10fa
+ 
     FROM_EMAIL: str = os.getenv("FROM_EMAIL", "msaadbinmazhar@gmail.com")
     
     # File Uploads - Use /tmp for Railway (ephemeral storage)
